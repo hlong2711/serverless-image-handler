@@ -17,6 +17,7 @@ class ImageHandler {
         let returnImage = '';
         const originalImage = request.originalImage;
         const edits = request.edits;
+        let returnBuffer = null;
 
         if (edits !== undefined && Object.keys(edits).length > 0) {
             let image = null;
@@ -38,10 +39,24 @@ class ImageHandler {
                 modifiedImage.toFormat(request.outputFormat);
             }
             const bufferImage = await modifiedImage.toBuffer();
+            returnBuffer = bufferImage;
             returnImage = bufferImage.toString('base64');
         } else {
             returnImage = originalImage.toString('base64');
+            returnBuffer = originalImage;
         }
+
+
+        const resultSave = await this.saveResultToS3({
+            bucket: request.bucket,
+            key: `scaled/${(Date.now())}-${request.key}`,
+            metadata: {
+                origin: request.key
+            },
+            contentType: request.ContentType,
+            cacheControl: request.CacheControl
+        }, returnBuffer);
+        console.log(resultSave);
 
         // If the converted image is larger than Lambda's payload hard limit, throw an error.
         const lambdaPayloadLimit = 6 * 1024 * 1024;
@@ -49,13 +64,25 @@ class ImageHandler {
             throw {
                 status: '413',
                 code: 'TooLargeImageException',
-                message: 'The converted image is too large to return.'
+                message: 'The converted image is too large to return.',
+                imageUrl: `scaled/${request.key}`,
             };
         }
 
         return returnImage;
     }
-
+    async saveResultToS3(param, imageData) {
+        const { bucket, key, contentType, cacheControl, metadata } = param;
+        const params = {
+            Bucket: bucket, Key: key,
+            Body: imageData,
+            Metadata: metadata,
+            ContentType: contentType,
+            CacheControl: cacheControl
+        }
+        let result = await this.s3.putObject(params).promise();
+        return result;
+    }
     /**
      * Applies image modifications to the original image based on edits
      * specified in the ImageRequest.
@@ -79,7 +106,7 @@ class ImageHandler {
                 let imageMetadata = metadata;
                 if (edits.resize) {
                     let imageBuffer = await image.toBuffer();
-                    imageMetadata = await sharp(imageBuffer).resize({ edits: { resize: edits.resize }}).metadata();
+                    imageMetadata = await sharp(imageBuffer).resize({ edits: { resize: edits.resize } }).metadata();
                 }
 
                 const { bucket, key, wRatio, hRatio, alpha } = value;
@@ -128,7 +155,7 @@ class ImageHandler {
                 image.composite(params);
             } else if (editKey === 'smartCrop') {
                 const options = value;
-                const imageBuffer = await image.toBuffer({resolveWithObject: true});
+                const imageBuffer = await image.toBuffer({ resolveWithObject: true });
                 const boundingBox = await this.getBoundingBox(imageBuffer.data, options.faceIndex);
                 const cropArea = this.getCropArea(boundingBox, options, imageBuffer.info);
                 try {
@@ -140,44 +167,43 @@ class ImageHandler {
                         message: 'The padding value you provided exceeds the boundaries of the original image. Please try choosing a smaller value or applying padding via Sharp for greater specificity.'
                     };
                 }
-            }  else if (editKey === 'roundCrop') {
+            } else if (editKey === 'roundCrop') {
                 const options = value;
-                const imageBuffer = await image.toBuffer({resolveWithObject: true});
+                const imageBuffer = await image.toBuffer({ resolveWithObject: true });
                 let width = imageBuffer.info.width;
                 let height = imageBuffer.info.height;
-                
+
                 //check for parameters, if not provided, set to defaults
-                const radiusX = options.rx && options.rx >= 0? options.rx : Math.min(width, height) / 2;
-                const radiusY = options.ry && options.ry >= 0? options.ry : Math.min(width, height) / 2;
+                const radiusX = options.rx && options.rx >= 0 ? options.rx : Math.min(width, height) / 2;
+                const radiusY = options.ry && options.ry >= 0 ? options.ry : Math.min(width, height) / 2;
                 const topOffset = options.top && options.top >= 0 ? options.top : height / 2;
                 const leftOffset = options.left && options.left >= 0 ? options.left : width / 2;
-                
-                if(options)
-                {
+
+                if (options) {
                     const ellipse = Buffer.from(`<svg viewBox="0 0 ${width} ${height}"> <ellipse cx="${leftOffset}" cy="${topOffset}" rx="${radiusX}" ry="${radiusY}" /></svg>`);
                     const params = [{ input: ellipse, blend: 'dest-in' }];
                     let data = await image.composite(params).toBuffer();
                     image = sharp(data).withMetadata().trim();
                 }
-                
+
             } else if (editKey === 'contentModeration') {
                 const options = value;
-                const imageBuffer = await image.toBuffer({resolveWithObject: true});
+                const imageBuffer = await image.toBuffer({ resolveWithObject: true });
                 const inappropriateContent = await this.detectInappropriateContent(imageBuffer.data, options);
-                const blur = options.hasOwnProperty('blur') ? Math.ceil(Number(options.blur)) : 50; 
-                
-                if(options && (blur >= 0.3 && blur <= 1000)) {
-                    if(options.moderationLabels){
-                        for(let item of inappropriateContent.ModerationLabels) {
-                            if (options.moderationLabels.includes(item.Name)){
+                const blur = options.hasOwnProperty('blur') ? Math.ceil(Number(options.blur)) : 50;
+
+                if (options && (blur >= 0.3 && blur <= 1000)) {
+                    if (options.moderationLabels) {
+                        for (let item of inappropriateContent.ModerationLabels) {
+                            if (options.moderationLabels.includes(item.Name)) {
                                 image.blur(blur);
                                 break;
                             }
                         }
-                    } else if(inappropriateContent.ModerationLabels.length) {
-                        image.blur(blur);                                   
+                    } else if (inappropriateContent.ModerationLabels.length) {
+                        image.blur(blur);
                     }
-                } 
+                }
 
             } else {
                 image[editKey](value);
@@ -256,10 +282,10 @@ class ImageHandler {
         const padding = (options.padding !== undefined) ? parseFloat(options.padding) : 0;
         // Calculate the smart crop area
         const cropArea = {
-            left : parseInt((boundingBox.Left * metadata.width) - padding),
-            top : parseInt((boundingBox.Top * metadata.height) - padding),
-            width : parseInt((boundingBox.Width * metadata.width) + (padding * 2)),
-            height : parseInt((boundingBox.Height * metadata.height) + (padding * 2)),
+            left: parseInt((boundingBox.Left * metadata.width) - padding),
+            top: parseInt((boundingBox.Top * metadata.height) - padding),
+            width: parseInt((boundingBox.Width * metadata.width) + (padding * 2)),
+            height: parseInt((boundingBox.Height * metadata.height) + (padding * 2)),
         }
         // Return the crop area
         return cropArea;
@@ -272,20 +298,19 @@ class ImageHandler {
      * confidence decreases for detected faces within the image.
      */
     async getBoundingBox(imageBuffer, faceIndex) {
-        const params = { Image: { Bytes: imageBuffer }};
+        const params = { Image: { Bytes: imageBuffer } };
         const faceIdx = (faceIndex !== undefined) ? faceIndex : 0;
         try {
             const response = await this.rekognition.detectFaces(params).promise();
-            if(response.FaceDetails.length <= 0) {
-                return {Height: 1, Left: 0, Top: 0, Width: 1};
+            if (response.FaceDetails.length <= 0) {
+                return { Height: 1, Left: 0, Top: 0, Width: 1 };
             }
             let boundingBox = {};
 
             //handle bounds > 1 and < 0
-            for (let bound in response.FaceDetails[faceIdx].BoundingBox)
-            {
-                if (response.FaceDetails[faceIdx].BoundingBox[bound] < 0 ) boundingBox[bound] = 0; 
-                else if (response.FaceDetails[faceIdx].BoundingBox[bound] > 1) boundingBox[bound] = 1; 
+            for (let bound in response.FaceDetails[faceIdx].BoundingBox) {
+                if (response.FaceDetails[faceIdx].BoundingBox[bound] < 0) boundingBox[bound] = 0;
+                else if (response.FaceDetails[faceIdx].BoundingBox[bound] > 1) boundingBox[bound] = 1;
                 else boundingBox[bound] = response.FaceDetails[faceIdx].BoundingBox[bound];
             }
 
@@ -315,23 +340,23 @@ class ImageHandler {
             }
         }
     }
-    
+
     /**
      * Detects inappropriate content in an image.
      * @param {Sharp} imageBuffer - The original image.
      * @param {Object} options - The options to pass to the dectectModerationLables Rekognition function
      */
     async detectInappropriateContent(imageBuffer, options) {
-        
+
         const params = {
-            Image: {Bytes: imageBuffer},
+            Image: { Bytes: imageBuffer },
             MinConfidence: options.minConfidence ? parseFloat(options.minConfidence) : 75
         }
 
         try {
             const response = await this.rekognition.detectModerationLabels(params).promise();
             return response;
-        } catch(err) {
+        } catch (err) {
             console.error(err)
             throw {
                 status: err.statusCode ? err.statusCode : 500,
