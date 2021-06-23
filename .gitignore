@@ -27,3 +27,6 @@ demo-ui-config.js
 
 # environment
 config.sh
+
+# local template file
+**/output.yml
