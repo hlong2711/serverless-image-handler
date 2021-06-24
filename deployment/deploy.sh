@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ../config.sh
+source ./config.sh
 
 # VARIABLES DEFINED
 ENV=$1
