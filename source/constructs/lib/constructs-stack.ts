@@ -83,6 +83,14 @@ export class ConstructsStack extends cdk.Stack {
       default: ''
     });
 
+    const lambdaMemorySizeParameter = new CfnParameter(this, 'LambdaMemorySize', {
+      type: 'Number',
+      description: 'Define memory size for lambda function to handle image. Max to 10GB',
+      default: 1024,
+      minValue: 1024,
+      maxValue: 10240
+    })
+
     // CFN descrption
     this.templateOptions.description = `(SO0023) - Serverless Image Handler with aws-solutions-constructs: This template deploys and configures a serverless architecture that is optimized for dynamic image manipulation and delivery at low latency and cost. Leverages SharpJS for image processing. Template version ${VERSION}`;
 
@@ -147,7 +155,8 @@ export class ConstructsStack extends cdk.Stack {
       secretsManagerKeyParameter,
       enableDefaultFallbackImageParameter,
       fallbackImageS3BucketParameter,
-      fallbackImageS3KeyParameter
+      fallbackImageS3KeyParameter,
+      lambdaMemorySizeParameter,
     };
 
     // Serverless Image Handler Construct

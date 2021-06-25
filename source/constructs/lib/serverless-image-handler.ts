@@ -32,6 +32,7 @@ export interface ServerlessImageHandlerProps {
   readonly enableDefaultFallbackImageParameter: CfnParameter;
   readonly fallbackImageS3BucketParameter: CfnParameter;
   readonly fallbackImageS3KeyParameter: CfnParameter;
+  readonly lambdaMemorySizeParameter: CfnParameter;
 }
 
 /**
@@ -166,7 +167,7 @@ export class ServerlessImageHandler extends Construct {
         handler: 'index.handler',
         runtime: cdkLambda.Runtime.NODEJS_12_X,
         timeout: cdk.Duration.seconds(30),
-        memorySize: 1024,
+        memorySize: props.lambdaMemorySizeParameter.valueAsNumber,
         role: imageHandlerFunctionRole,
         environment: {
           AUTO_WEBP: props.autoWebPParameter.valueAsString,
