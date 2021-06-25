@@ -358,6 +358,27 @@ export class ServerlessImageHandler extends Construct {
         });
         cfnOriginRequestPolicy.overrideLogicalId("ImageHandlerOriginRequestPolicy");
  
+      const sourceBuckets = props.sourceBucketsParameter.valueAsString;
+      const formatted = sourceBuckets.replace(/\s+/g, '');
+      const buckets = formatted.split(',');
+      // refer to s3 buckets[0]
+      const srcBucket = cdkS3.Bucket.fromBucketName(this, 'FirstSrcBucket', buckets[0]);
+      // Create Origin Access Identity to be use Canonical User Id in S3 bucket policy
+      const originAccessIdentity = new cdkCloudFront.OriginAccessIdentity(this, 'OAI', {
+        comment: "Created_by_ImageHandler"
+      });
+
+      const policyStatement = new cdkIam.PolicyStatement();
+      policyStatement.addActions('s3:GetObject*');
+      policyStatement.addResources(`${srcBucket.bucketArn}/*`);
+      policyStatement.addCanonicalUserPrincipal(originAccessIdentity.cloudFrontOriginAccessIdentityS3CanonicalUserId);
+      // Manually create or update bucket policy
+      if( !srcBucket.policy ) {
+        new cdkS3.BucketPolicy(this, 'Policy', { bucket: srcBucket }).document.addStatements(policyStatement);
+      } else {
+        srcBucket.policy.document.addStatements(policyStatement);
+      }
+        
       // ImageHandlerDistribution
       const cfnCloudFrontDistribution = cloudFrontWebDistribution.node.defaultChild as cdkCloudFront.CfnDistribution;
       cfnCloudFrontDistribution.distributionConfig = {
@@ -370,6 +391,13 @@ export class ServerlessImageHandler extends Construct {
             originProtocolPolicy: 'https-only',
             originSslProtocols: [ 'TLSv1.1', 'TLSv1.2' ]
           }
+        },
+        {
+          domainName: `${buckets[0]}.s3.amazonaws.com`,
+          id: `S3-${buckets[0]}`,
+          s3OriginConfig: {
+            originAccessIdentity: `origin-access-identity/cloudfront/${originAccessIdentity.originAccessIdentityName}`
+          },
         }],
         enabled: true,
         httpVersion: 'http2',
@@ -382,6 +410,17 @@ export class ServerlessImageHandler extends Construct {
           originRequestPolicyId: cfnOriginRequestPolicy.ref
 
         },
+        cacheBehaviors: [
+          {
+            allowedMethods: ['GET', 'HEAD'],
+            targetOriginId: `S3-${buckets[0]}`,
+            viewerProtocolPolicy: 'redirect-to-https',
+            // path where too large images will be stored
+            pathPattern: '/converted/*',
+            // Managed-CachingOptimized
+            cachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6'
+          }
+        ],
         customErrorResponses: [
           { errorCode: 500, errorCachingMinTtl: 10 },
           { errorCode: 501, errorCachingMinTtl: 10 },
