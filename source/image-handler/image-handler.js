@@ -46,28 +46,33 @@ class ImageHandler {
             returnBuffer = originalImage;
         }
 
-        const savedUrl = `converted/${(Date.now())}-${request.key}`;
-        const resultSave = await this.saveResultToS3({
-            bucket: request.bucket,
-            key: savedUrl,
-            metadata: {
-                origin: request.key
-            },
-            contentType: request.ContentType,
-            cacheControl: request.CacheControl
-        }, returnBuffer);
-        console.log(resultSave);
-
         // If the converted image is larger than Lambda's payload hard limit, throw an error.
         const lambdaPayloadLimit = 6 * 1024 * 1024;
-        if (true || returnImage.length > lambdaPayloadLimit) {
-            throw {
+        if (returnImage.length > lambdaPayloadLimit) {
+            const error = {
                 status: 413,
                 code: 'TooLargeImageException',
                 message: 'The converted image is too large to return.',
-                imageUrl: savedUrl,
                 imageSize: `${returnImage.length}`
-            };
+            }
+            
+            if (process.env.STORE_LARGE_RESULT === 'Yes') {
+                const savedUrl = `converted/${(Date.now())}-${request.key}`;
+                const resultSave = await this.saveResultToS3({
+                    bucket: request.bucket,
+                    key: savedUrl,
+                    metadata: {
+                        origin: request.key
+                    },
+                    contentType: request.ContentType,
+                    cacheControl: request.CacheControl
+                }, returnBuffer);
+
+                console.log(resultSave);
+                error.imageUrl = savedUrl;
+            }
+
+            throw error;
         }
 
         return returnImage;

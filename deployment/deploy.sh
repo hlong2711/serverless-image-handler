@@ -26,7 +26,9 @@ deploy() {
   SourceBuckets=$LAMBDA_BUCKET \
   DeployDemoUI=Yes \
   AutoWebP=No \
-  EnableSignature=No
+  EnableSignature=No \
+  LambdaMemorySize=1024 \
+  EnableStoreLargeResult=Yes
 }
 
 package_template "global-s3-assets/serverless-image-handler.template" "output.yml"
