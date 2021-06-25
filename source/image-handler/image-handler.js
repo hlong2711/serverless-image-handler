@@ -46,10 +46,10 @@ class ImageHandler {
             returnBuffer = originalImage;
         }
 
-
+        const savedUrl = `converted/${(Date.now())}-${request.key}`;
         const resultSave = await this.saveResultToS3({
             bucket: request.bucket,
-            key: `scaled/${(Date.now())}-${request.key}`,
+            key: savedUrl,
             metadata: {
                 origin: request.key
             },
@@ -60,12 +60,13 @@ class ImageHandler {
 
         // If the converted image is larger than Lambda's payload hard limit, throw an error.
         const lambdaPayloadLimit = 6 * 1024 * 1024;
-        if (returnImage.length > lambdaPayloadLimit) {
+        if (true || returnImage.length > lambdaPayloadLimit) {
             throw {
-                status: '413',
+                status: 413,
                 code: 'TooLargeImageException',
                 message: 'The converted image is too large to return.',
-                imageUrl: `scaled/${request.key}`,
+                imageUrl: savedUrl,
+                imageSize: `${returnImage.length}`
             };
         }
 

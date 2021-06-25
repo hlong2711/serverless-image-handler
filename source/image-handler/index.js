@@ -36,7 +36,7 @@ exports.handler = async (event) => {
         return {
             statusCode: 200,
             isBase64Encoded: true,
-            headers : headers,
+            headers: headers,
             body: processedRequest
         };
     } catch (err) {
@@ -69,17 +69,31 @@ exports.handler = async (event) => {
         }
 
         if (err.status) {
-            return {
-                statusCode: err.status,
-                isBase64Encoded: false,
-                headers : getResponseHeaders(true, isAlb),
-                body: JSON.stringify(err)
-            };
+            // payload too large 
+            if (err.status === 413 && err.imageUrl) {
+                const headers = getResponseHeaders(true, isAlb);
+                // enable cache control for this repsonse
+                headers['Cache-Control'] = 'max-age=31536000,public';
+                // headers['Location'] = `/${err.imageUrl}`
+                return {
+                    statusCode: 301,
+                    isBase64Encoded: false,
+                    headers: headers,
+                    body: JSON.stringify(err)
+                }
+            } else {
+                return {
+                    statusCode: err.status,
+                    isBase64Encoded: false,
+                    headers: getResponseHeaders(true, isAlb),
+                    body: JSON.stringify(err)
+                };
+            }
         } else {
             return {
                 statusCode: 500,
                 isBase64Encoded: false,
-                headers : getResponseHeaders(true, isAlb),
+                headers: getResponseHeaders(true, isAlb),
                 body: JSON.stringify({ message: 'Internal error. Please contact the system administrator.', code: 'InternalError', status: 500 })
             };
         }
