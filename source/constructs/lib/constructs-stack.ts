@@ -96,7 +96,7 @@ export class ConstructsStack extends cdk.Stack {
       default: 'No',
       allowedValues: [ 'Yes', 'No' ]
     })
-    const forceStoreResultToS3Parameter = new CfnParameter(this, 'foreceStoreResultToS3', {
+    const forceStoreResultToS3Parameter = new CfnParameter(this, 'ForceStoreResultToS3', {
       type: 'String',
       description: 'Force store all results to S3 bucket',
       default: 'No',

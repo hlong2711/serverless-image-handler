@@ -28,7 +28,8 @@ deploy() {
   AutoWebP=No \
   EnableSignature=No \
   LambdaMemorySize=1024 \
-  EnableStoreLargeResult=Yes
+  EnableStoreLargeResult=Yes \
+  ForceStoreResultToS3=No
 }
 
 package_template "global-s3-assets/serverless-image-handler.template" "output.yml"
