@@ -39,15 +39,35 @@ class ImageHandler {
                 modifiedImage.toFormat(request.outputFormat);
             }
             const bufferImage = await modifiedImage.toBuffer();
-            returnBuffer = bufferImage;
+            // returnBuffer = bufferImage;
             returnImage = bufferImage.toString('base64');
         } else {
             returnImage = originalImage.toString('base64');
-            returnBuffer = originalImage;
+            // returnBuffer = originalImage;
         }
 
         // If the converted image is larger than Lambda's payload hard limit, throw an error.
         const lambdaPayloadLimit = 6 * 1024 * 1024;
+
+        const storeS3 = returnImage.length > lambdaPayloadLimit && process.env.STORE_LARGE_RESULT === 'Yes'
+            || process.env.FORCE_STORE_RESULT === 'Yes';
+        
+        if (storeS3) {
+            const savedUrl = `converted/${(Date.now())}-${request.key}`;
+            const resultSave = await this.saveResultToS3({
+                bucket: request.bucket,
+                key: savedUrl,
+                metadata: {
+                    origin: request.key
+                },
+                contentType: request.ContentType,
+                cacheControl: request.CacheControl
+            }, returnImage);
+
+            console.log(resultSave);
+            error.imageUrl = savedUrl;
+        }
+
         if (returnImage.length > lambdaPayloadLimit) {
             const error = {
                 status: 413,
@@ -55,23 +75,6 @@ class ImageHandler {
                 message: 'The converted image is too large to return.',
                 imageSize: `${returnImage.length}`
             }
-            
-            if (process.env.STORE_LARGE_RESULT === 'Yes') {
-                const savedUrl = `converted/${(Date.now())}-${request.key}`;
-                const resultSave = await this.saveResultToS3({
-                    bucket: request.bucket,
-                    key: savedUrl,
-                    metadata: {
-                        origin: request.key
-                    },
-                    contentType: request.ContentType,
-                    cacheControl: request.CacheControl
-                }, returnBuffer);
-
-                console.log(resultSave);
-                error.imageUrl = savedUrl;
-            }
-
             throw error;
         }
 
@@ -84,7 +87,8 @@ class ImageHandler {
             Body: imageData,
             Metadata: metadata,
             ContentType: contentType,
-            CacheControl: cacheControl
+            CacheControl: cacheControl,
+            ContentEncoding: 'base64'
         }
         let result = await this.s3.putObject(params).promise();
         return result;

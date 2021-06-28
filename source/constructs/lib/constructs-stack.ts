@@ -96,6 +96,12 @@ export class ConstructsStack extends cdk.Stack {
       default: 'No',
       allowedValues: [ 'Yes', 'No' ]
     })
+    const forceStoreResultToS3Parameter = new CfnParameter(this, 'foreceStoreResultToS3', {
+      type: 'String',
+      description: 'Force store all results to S3 bucket',
+      default: 'No',
+      allowedValues: [ 'Yes', 'No' ]
+    })
 
     // CFN descrption
     this.templateOptions.description = `(SO0023) - Serverless Image Handler with aws-solutions-constructs: This template deploys and configures a serverless architecture that is optimized for dynamic image manipulation and delivery at low latency and cost. Leverages SharpJS for image processing. Template version ${VERSION}`;
@@ -164,6 +170,7 @@ export class ConstructsStack extends cdk.Stack {
       fallbackImageS3KeyParameter,
       lambdaMemorySizeParameter,
       storeTooLargeResultToS3Parameter,
+      forceStoreResultToS3Parameter,
     };
 
     // Serverless Image Handler Construct
