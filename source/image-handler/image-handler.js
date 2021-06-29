@@ -39,11 +39,11 @@ class ImageHandler {
                 modifiedImage.toFormat(request.outputFormat);
             }
             const bufferImage = await modifiedImage.toBuffer();
-            // returnBuffer = bufferImage;
+            returnBuffer = bufferImage;
             returnImage = bufferImage.toString('base64');
         } else {
+            returnBuffer = originalImage;
             returnImage = originalImage.toString('base64');
-            // returnBuffer = originalImage;
         }
 
         // If the converted image is larger than Lambda's payload hard limit, throw an error.
@@ -62,13 +62,13 @@ class ImageHandler {
                 },
                 contentType: request.ContentType,
                 cacheControl: request.CacheControl
-            }, returnImage);
+            }, returnBuffer);
 
             console.log(resultSave);
             imageUrl = savedUrl;
         }
 
-        if (returnImage.length > lambdaPayloadLimit) {
+        if (returnImage.length > lambdaPayloadLimit || process.env.FORCE_STORE_RESULT === 'Yes') {
             const error = {
                 status: 413,
                 code: 'TooLargeImageException',
@@ -91,7 +91,6 @@ class ImageHandler {
             Metadata: metadata,
             ContentType: contentType,
             CacheControl: cacheControl,
-            ContentEncoding: 'base64'
         }
         let result = await this.s3.putObject(params).promise();
         return result;
