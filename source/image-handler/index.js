@@ -74,7 +74,7 @@ exports.handler = async (event) => {
                 const headers = getResponseHeaders(true, isAlb);
                 // enable cache control for this repsonse
                 headers['Cache-Control'] = 'max-age=31536000,public';
-                // headers['Location'] = `/${err.imageUrl}`
+                headers['Location'] = `${err.imageUrl}`
                 return {
                     statusCode: 301,
                     isBase64Encoded: false,
