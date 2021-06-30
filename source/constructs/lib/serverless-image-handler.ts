@@ -286,6 +286,7 @@ export class ServerlessImageHandler extends Construct {
           "reason": "Used to store access logs for other buckets"
         }
       ]);
+      cfnAccessLogBucket.versioningConfiguration = { status: 'Suspended' };
       cfnAccessLogBucket.overrideLogicalId('Logs');
 
       // LogsBucketPolicy
@@ -298,8 +299,8 @@ export class ServerlessImageHandler extends Construct {
       const optInRegionAccessLogBucket = cdkS3.Bucket.fromBucketAttributes(this, 'CloudFrontLoggingBucket', {
         bucketName: 
           cdk.Fn.getAtt(
-            cdk.Lazy.stringValue({ 
-              produce(context) {
+            cdk.Lazy.string({
+              produce() {
                 return cfLoggingBucket.logicalId}
             }), 
           'bucketName').toString(),
@@ -367,7 +368,7 @@ export class ServerlessImageHandler extends Construct {
       const srcBucket = cdkS3.Bucket.fromBucketName(this, 'FirstSrcBucket', buckets[0]);
       // Create Origin Access Identity to be use Canonical User Id in S3 bucket policy
       const originAccessIdentity = new cdkCloudFront.OriginAccessIdentity(this, 'OAI', {
-        comment: "Created_by_ImageHandler"
+        comment: "Created_by_ImageHandler-to-first-sourceBucket"
       });
 
       const policyStatement = new cdkIam.PolicyStatement();
@@ -465,12 +466,22 @@ export class ServerlessImageHandler extends Construct {
       cfnDemoBucket.overrideLogicalId('DemoBucket');
 
       // DemoOriginAccessIdentity
-      const cfnDemoOriginAccessIdentity = cloudFrontToS3.node.findChild('CloudFrontOriginAccessIdentity') as cdkCloudFront.CfnCloudFrontOriginAccessIdentity;
+      // NOTE: cdk from v1.64 to v1.110 can't findchild name CloudFrontOriginAccessIdentity
+      /* const cfnDemoOriginAccessIdentity = cloudFrontToS3.node.findChild('CloudFrontOriginAccessIdentity') as cdkCloudFront.CfnCloudFrontOriginAccessIdentity;
       cfnDemoOriginAccessIdentity.cloudFrontOriginAccessIdentityConfig = {
         comment: `access-identity-${demoBucket.bucketName}`
       };
       cfnDemoOriginAccessIdentity.cfnOptions.condition = deployDemoUiCondition;
       cfnDemoOriginAccessIdentity.overrideLogicalId('DemoOriginAccessIdentity');
+ */
+      // -> manual create CloudFrontOriginAccessIdentity
+      const cfnDemoOriginAccessIdentity = new cdkCloudFront.CfnCloudFrontOriginAccessIdentity(this, 'DemoOAI', {
+        cloudFrontOriginAccessIdentityConfig: {
+          comment: `access-identity-${demoBucket.bucketName}`
+        }
+      });
+      cfnDemoOriginAccessIdentity.cfnOptions.condition = deployDemoUiCondition;
+      cfnDemoOriginAccessIdentity.overrideLogicalId('DemoOriginAccessIdentity')
 
       // DemoBucketPolicy
       const demoBucketPolicy = demoBucket.node.findChild('Policy');
