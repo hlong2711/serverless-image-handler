@@ -367,14 +367,17 @@ export class ServerlessImageHandler extends Construct {
       // refer to s3 buckets[0]
       const srcBucket = cdkS3.Bucket.fromBucketName(this, 'FirstSrcBucket', buckets[0]);
       // Create Origin Access Identity to be use Canonical User Id in S3 bucket policy
-      const originAccessIdentity = new cdkCloudFront.OriginAccessIdentity(this, 'OAI', {
-        comment: "Created_by_ImageHandler-to-first-sourceBucket"
+      const originAccessIdentity = new cdkCloudFront.CfnCloudFrontOriginAccessIdentity(this, 'OAI', {
+        cloudFrontOriginAccessIdentityConfig: {
+          comment: "Created_by_ImageHandler-to-first-sourceBucket"
+        }
       });
+      originAccessIdentity.overrideLogicalId('SourceBucketOriginAccessIdentity');
 
       const policyStatement = new cdkIam.PolicyStatement();
       policyStatement.addActions('s3:GetObject*');
       policyStatement.addResources(`${srcBucket.bucketArn}/*`);
-      policyStatement.addCanonicalUserPrincipal(originAccessIdentity.cloudFrontOriginAccessIdentityS3CanonicalUserId);
+      policyStatement.addCanonicalUserPrincipal(originAccessIdentity.attrS3CanonicalUserId);
       // Manually create or update bucket policy
       if( !srcBucket.policy ) {
         new cdkS3.BucketPolicy(this, 'Policy', { bucket: srcBucket }).document.addStatements(policyStatement);
@@ -399,7 +402,7 @@ export class ServerlessImageHandler extends Construct {
           domainName: `${buckets[0]}.s3.amazonaws.com`,
           id: `S3-${buckets[0]}`,
           s3OriginConfig: {
-            originAccessIdentity: `origin-access-identity/cloudfront/${originAccessIdentity.originAccessIdentityName}`
+            originAccessIdentity: `origin-access-identity/cloudfront/${originAccessIdentity.ref}`
           },
         }],
         enabled: true,
