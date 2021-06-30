@@ -370,7 +370,7 @@ export class ServerlessImageHandler extends Construct {
       // Create Origin Access Identity to be use Canonical User Id in S3 bucket policy
       const originAccessIdentity = new cdkCloudFront.CfnCloudFrontOriginAccessIdentity(this, 'OAI', {
         cloudFrontOriginAccessIdentityConfig: {
-          comment: "Created_by_ImageHandler-to-first-sourceBucket"
+          comment: `Created_by_${cdk.Aws.STACK_NAME}-to-first-sourceBucket`
         }
       });
       originAccessIdentity.overrideLogicalId('SourceBucketOriginAccessIdentity');
