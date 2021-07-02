@@ -102,6 +102,11 @@ export class ConstructsStack extends cdk.Stack {
       default: 'No',
       allowedValues: [ 'Yes', 'No' ]
     })
+    const vipsDiscThresholdParameter = new CfnParameter(this, 'VipsDiscThreshold', {
+      type: 'String',
+      description: 'VIPS_DISC_THRESHOLD parameter to force sharp use memory instead of write to disk',
+      default: '500m',
+    })
 
     // CFN descrption
     this.templateOptions.description = `(SO0023) - Serverless Image Handler with aws-solutions-constructs: This template deploys and configures a serverless architecture that is optimized for dynamic image manipulation and delivery at low latency and cost. Leverages SharpJS for image processing. Template version ${VERSION}`;
@@ -171,6 +176,7 @@ export class ConstructsStack extends cdk.Stack {
       lambdaMemorySizeParameter,
       storeTooLargeResultToS3Parameter,
       forceStoreResultToS3Parameter,
+      vipsDiscThresholdParameter
     };
 
     // Serverless Image Handler Construct

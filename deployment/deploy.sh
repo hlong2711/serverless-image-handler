@@ -22,14 +22,15 @@ deploy() {
   aws cloudformation deploy --template-file $1 --stack-name $APP_NAME \
   --role-arn arn:aws:iam::${AWS_ACCOUNT_ID}:role/cloudformation-deployment --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides EnvironmentName=$ENV \
-  CorsEnabled=No \
+  CorsEnabled='No' \
   SourceBuckets=$LAMBDA_BUCKET \
-  DeployDemoUI=Yes \
-  AutoWebP=No \
-  EnableSignature=No \
-  LambdaMemorySize=1024 \
-  EnableStoreLargeResult=Yes \
-  ForceStoreResultToS3=No
+  DeployDemoUI='Yes' \
+  AutoWebP='No' \
+  EnableSignature='No' \
+  LambdaMemorySize=2048 \
+  EnableStoreLargeResult='Yes' \
+  ForceStoreResultToS3='No' \
+  VipsDiscThreshold='600m'
 }
 
 package_template "global-s3-assets/serverless-image-handler.template" "output.yml"
