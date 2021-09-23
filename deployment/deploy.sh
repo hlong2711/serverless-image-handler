@@ -22,7 +22,7 @@ deploy() {
   aws cloudformation deploy --template-file $1 --stack-name $APP_NAME \
   --role-arn arn:aws:iam::${AWS_ACCOUNT_ID}:role/cloudformation-deployment --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides EnvironmentName=$ENV \
-  CorsEnabled='No' \
+  CorsEnabled='Yes' \
   SourceBuckets=$LAMBDA_BUCKET \
   DeployDemoUI='Yes' \
   AutoWebP='No' \
