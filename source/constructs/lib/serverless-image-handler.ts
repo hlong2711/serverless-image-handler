@@ -12,6 +12,7 @@ import * as cdkLogs from '@aws-cdk/aws-logs';
 import { CloudFrontToApiGatewayToLambda } from '@aws-solutions-constructs/aws-cloudfront-apigateway-lambda';
 import { CloudFrontToS3 } from '@aws-solutions-constructs/aws-cloudfront-s3';
 import apiBody from './api.json';
+import { OriginRequestPolicy } from "@aws-cdk/aws-cloudfront";
 
 const { BUCKET_NAME, SOLUTION_NAME, VERSION } = process.env;
 
@@ -427,7 +428,8 @@ export class ServerlessImageHandler extends Construct {
             // path where too large images will be stored
             pathPattern: '/converted/*',
             // Managed-CachingOptimized
-            cachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6'
+            cachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6',
+            originRequestPolicyId: '88a5eaf4-2fd4-4709-b370-b4c650ea3fcf', //CORS-S3Origin
           }
         ],
         customErrorResponses: [
